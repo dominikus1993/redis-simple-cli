@@ -9,7 +9,7 @@ import (
 )
 
 type RedisClient struct {
-	client *redis.Client
+	Client *redis.Client
 }
 
 func NewRedisClient(ctx context.Context, addr string) (*RedisClient, error) {
@@ -27,5 +27,12 @@ func NewRedisClient(ctx context.Context, addr string) (*RedisClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w, cannot connect to redis", err)
 	}
-	return &RedisClient{client: client}, nil
+	return &RedisClient{Client: client}, nil
+}
+
+func (client *RedisClient) Close(ctx context.Context) {
+	err := client.Client.Close()
+	if err != nil {
+		panic(err)
+	}
 }
