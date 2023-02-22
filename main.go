@@ -1,34 +1,18 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/urfave/cli/v2"
 )
 
-func NewRedisClient(ctx context.Context, addr string) (*redis.Client, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		Password:     "", // no password set
-		DB:           0,  // use default DB
-		DialTimeout:  20 * time.Minute,
-		WriteTimeout: 20 * time.Minute,
-		ReadTimeout:  20 * time.Minute,
-		PoolTimeout:  20 * time.Minute,
-	})
-
-	_, err := client.Ping(ctx).Result()
-	if err != nil {
-		return nil, fmt.Errorf("%w, cannot connect to redis", err)
-	}
-	return client, nil
+type RedisClient struct {
+	client *redis.Client
 }
 
 func main() {
@@ -42,12 +26,26 @@ func main() {
 		},
 		Action: func(ctx *cli.Context) error {
 			redisConnection := ctx.String("redis")
-			client, err := NewRedisClient(ctx.Context, redisConnection)
+			redis, err := NewRedisClient(ctx.Context, redisConnection)
 			if err != nil {
 				return cli.Exit(errors.Join(err, errors.New("can't connect to redis")), 1)
 			}
-			client.Scan(ctx.Context)
-			return cli.Exit("da", 32)
+			var cursor uint64
+			var n int
+			for {
+				var keys []string
+				var err error
+				keys, cursor, err = redis.client.Scan(ctx.Context, cursor, "*", 10).Result()
+				if err != nil {
+					return cli.Exit(errors.Join(err, errors.New("can't scan redis")), 1)
+				}
+				n += len(keys)
+				if cursor == 0 {
+					break
+				}
+			}
+
+			return cli.Exit(fmt.Sprintf("processed keys %d", n), 0)
 		},
 	}
 	sort.Sort(cli.FlagsByName(app.Flags))
