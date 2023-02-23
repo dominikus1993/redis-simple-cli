@@ -8,13 +8,8 @@ import (
 	"sort"
 
 	"github.com/dominikus1993/redis-simple-cli/internal/redisdb"
-	"github.com/redis/go-redis/v9"
 	"github.com/urfave/cli/v2"
 )
-
-type RedisClient struct {
-	client *redis.Client
-}
 
 func main() {
 	app := &cli.App{
@@ -33,7 +28,11 @@ func main() {
 			}
 			defer redis.Close(ctx.Context)
 
-			return cli.Exit(fmt.Sprintf("processed keys %d", 10), 0)
+			n, err := redis.ScanAndRemoveKeysWithoutTTL(ctx.Context)
+			if err != nil {
+				cli.Exit(err, 1)
+			}
+			return cli.Exit(fmt.Sprintf("processed keys %d", n), 0)
 		},
 	}
 	sort.Sort(cli.FlagsByName(app.Flags))
