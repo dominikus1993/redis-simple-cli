@@ -14,13 +14,12 @@ func (redis *RedisClient) RemoveKeysWithoutTTL(ctx context.Context, keys []strin
 		if err != nil {
 			return err
 		}
-		seconds := ttl.Seconds()
-		if seconds == -1 {
+		if ttl == -1 {
 			_, err := redis.Client.Del(ctx, key).Result()
 			if err != nil {
 				return errors.Join(err, fmt.Errorf("can't create redis key: %s", key))
 			}
-		} else if seconds == -2 {
+		} else if ttl == -2 {
 			log.WithField("key", key).Println("Key aleardy exists")
 		}
 
