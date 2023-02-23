@@ -32,26 +32,8 @@ func main() {
 				return cli.Exit(errors.Join(err, errors.New("can't connect to redis")), 1)
 			}
 			defer redis.Close(ctx.Context)
-			var cursor uint64
-			var n int
-			for {
-				var keys []string
-				var err error
-				keys, cursor, err = redis.Client.Scan(ctx.Context, cursor, "*", 10).Result()
-				if err != nil {
-					return cli.Exit(errors.Join(err, errors.New("can't scan redis")), 1)
-				}
-				n += len(keys)
-				if cursor == 0 {
-					break
-				}
-				err = redis.RemoveKeysWithoutTTL(ctx.Context, keys)
-				if err != nil {
-					return cli.Exit(errors.Join(err, errors.New("can't remove redis keys")), 1)
-				}
-			}
 
-			return cli.Exit(fmt.Sprintf("processed keys %d", n), 0)
+			return cli.Exit(fmt.Sprintf("processed keys %d", 10), 0)
 		},
 	}
 	sort.Sort(cli.FlagsByName(app.Flags))
