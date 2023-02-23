@@ -16,6 +16,9 @@ func (redis *RedisClient) ScanAndRemoveKeysWithoutTTL(ctx context.Context) (int,
 			return n, errors.Join(err, errors.New("can't scan redis"))
 		}
 		err = redis.RemoveKeysWithoutTTL(ctx, keys)
+		if err != nil {
+			return n, errors.Join(err, errors.New("can't remove redis keys"))
+		}
 		n += len(keys)
 		if cursor == 0 {
 			break

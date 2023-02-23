@@ -60,10 +60,104 @@ func TestScanAndRemoveKeysWithoutTTLConnection(t *testing.T) {
 	key, err := rdb.Client.Get(ctx, key1).Result()
 	assert.NoError(t, err)
 	assert.Equal(t, "test", key)
-	//assert.False(t, errors.Is(err, redis.Nil))
 
 	// Should be deleted because key2 has no expiration
 	_, err = rdb.Client.Get(ctx, key2).Result()
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, redis.Nil))
+}
+
+func TestScanAndRemoveKeysWithoutTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	config := redisc.NewRedisContainerConfigurationBuilder().Build()
+	// Arrange
+	ctx := context.Background()
+
+	container, err := redisc.StartContainer(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Fatalf("failed to terminate container: %s", err)
+		}
+	})
+
+	connectionString, err := container.Url(ctx)
+	if err != nil {
+		t.Fatal(fmt.Errorf("can't download redis conectionstring, %w", err))
+	}
+	rdb, err := NewRedisClient(ctx, connectionString)
+	if err != nil {
+		t.Fatal(fmt.Errorf("can't connect to redis, %w", err))
+	}
+	t.Cleanup(func() {
+		rdb.Close(ctx)
+	})
+	const keysQ = 50
+	for i := 0; i < keysQ; i++ {
+		key := random.String(10)
+		_, err = rdb.Client.Set(ctx, key, "test", 50000*time.Second).Result()
+		if err != nil {
+			t.Fatal(fmt.Errorf("error when trying set key1 in redis server: %w", err))
+		}
+	}
+
+	n, err := rdb.ScanAndRemoveKeysWithoutTTL(ctx)
+	assert.Equal(t, keysQ, n)
+	assert.NoError(t, err)
+
+	keys, err := rdb.Client.Keys(ctx, "*").Result()
+	assert.NoError(t, err)
+	assert.NotEmpty(t, keys)
+	assert.Len(t, keys, keysQ)
+}
+
+func TestScanAndRemoveKeysWithoutTTLWhenAllKeyshasNoTTL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	config := redisc.NewRedisContainerConfigurationBuilder().Build()
+	// Arrange
+	ctx := context.Background()
+
+	container, err := redisc.StartContainer(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := container.Terminate(ctx); err != nil {
+			t.Fatalf("failed to terminate container: %s", err)
+		}
+	})
+
+	connectionString, err := container.Url(ctx)
+	if err != nil {
+		t.Fatal(fmt.Errorf("can't download redis conectionstring, %w", err))
+	}
+	rdb, err := NewRedisClient(ctx, connectionString)
+	if err != nil {
+		t.Fatal(fmt.Errorf("can't connect to redis, %w", err))
+	}
+	t.Cleanup(func() {
+		rdb.Close(ctx)
+	})
+	const keysQ = 50
+	for i := 0; i < keysQ; i++ {
+		key := random.String(10)
+		_, err = rdb.Client.Set(ctx, key, "test", 0).Result()
+		if err != nil {
+			t.Fatal(fmt.Errorf("error when trying set key1 in redis server: %w", err))
+		}
+	}
+
+	n, err := rdb.ScanAndRemoveKeysWithoutTTL(ctx)
+	assert.Equal(t, keysQ, n)
+	assert.NoError(t, err)
+
+	keys, err := rdb.Client.Keys(ctx, "*").Result()
+	assert.NoError(t, err)
+	assert.Empty(t, keys)
 }
